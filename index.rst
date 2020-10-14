@@ -10,4 +10,4 @@ Welcome to KPS-woodkraft's documentation!
    :maxdepth: 2
    :caption: KPS woodkraft application deployment
    
-   README
+   deploy_woodkraft/deploy_woodkraft
