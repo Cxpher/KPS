@@ -1,0 +1,416 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deploy a Kubernetes Application on Karbon Platform Services &#8212; KPS-woodkraft 0.01 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Welcome to KPS-woodkraft’s documentation!" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="deploy-a-kubernetes-application-on-karbon-platform-services">
+<h1>Deploy a Kubernetes Application on Karbon Platform Services<a class="headerlink" href="#deploy-a-kubernetes-application-on-karbon-platform-services" title="Permalink to this headline">¶</a></h1>
+<p>Karbon Platform Services (KPS) is a Kubernetes based multi-cloud PaaS
+that enables rapid development and deployment of microservices-based
+applications ranging from simple stateful containerized applications to
+complex AI, IoT and hybrid applications across any cloud.</p>
+<p>This tutorial will guide you through the deployment and update of a
+sample Kubernetes Application using KPS. The application is deployed to
+a KPS Service Domain for execution. This tutorial assumes your Service
+Domain has already been deployed using steps from the Karbon Platform
+Services Admin Guide and that direct network connectivity between the
+Service Domain and your workstation is configured (to view sample web
+app output). Access to the Admin Guide is provided via the My Nutanix
+Portal and requires an account to login.</p>
+<p><strong>For brevity, several component applications in this tutorial have been
+combined into single deployment manifests (Kubernetes YAML or Helm
+chart). This is not representative of a typical production deployment,
+where all applications and services are deployed as separate apps using
+API calls in a standard CI/CD pipeline.</strong></p>
+<div class="section" id="accessing-karbon-platform-services">
+<h2>Accessing Karbon Platform Services<a class="headerlink" href="#accessing-karbon-platform-services" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Open <a class="reference external" href="https://my.nutanix.com/">https://my.nutanix.com/</a> in your browser. If you don’t already
+have a My Nutanix account, follow steps to create one.</p></li>
+<li><p>Scroll to the Cloud Services section and click Launch to access the
+Karbon Platform Services Cloud Management Console.</p></li>
+</ol>
+<p>At this point you should have a dashboard with a default User (you),
+Project, Category.</p>
+</div>
+<div class="section" id="application-design">
+<h2>Application Design<a class="headerlink" href="#application-design" title="Permalink to this headline">¶</a></h2>
+<p>The application deployed as part of this tutorial is a typical content
+management system where users can post blogs, articles and others can
+add comments to it. You will also add analytics like a wordcloud to tell
+authors the most popular terms in the reviews for their posts.</p>
+<p>Here are the components used to build the application:</p>
+<ul class="simple">
+<li><p>Wordpress as the content management engine for creating the
+e-commerce application</p></li>
+<li><p>MySQL database to support Wordpress</p></li>
+<li><p>Debezium for getting change events from DB to Kafka</p></li>
+<li><p>Kafka for streaming the orders other services like Recommendation
+Service</p></li>
+<li><p>Recommendation Service receives the streams and updates the most
+bought product listing page</p></li>
+<li><p>Loader which will simulate user behavior with artificially created
+data about products and pruchase history</p></li>
+</ul>
+</div>
+<div class="section" id="application-architecture">
+<h2>Application Architecture<a class="headerlink" href="#application-architecture" title="Permalink to this headline">¶</a></h2>
+<div class="figure align-default" id="id1">
+<img alt="Woodkraft App" src="../_images/woodkraft-app.png" />
+<p class="caption"><span class="caption-text">Woodkraft App!</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+<div class="section" id="application-deployment">
+<h2>Application Deployment<a class="headerlink" href="#application-deployment" title="Permalink to this headline">¶</a></h2>
+<p>The following steps will explain how to deploy the Woodkraft application
+on KPS.</p>
+<div class="section" id="creating-a-project">
+<h3>Creating a Project<a class="headerlink" href="#creating-a-project" title="Permalink to this headline">¶</a></h3>
+<p>In KPS, Projects are used to segment resources such as Kubernetes Apps
+and other services so that only assigned users can view and modify them.
+This allows different departments or teams to utilize shared Service
+Domains, or cloud resources without interfering with each other’s
+applications or business logic.</p>
+<p>As part of this tutorial, you’ll create a new Project to deploy your
+sample Application.</p>
+<ol class="arabic simple">
+<li><p>After logging into the Karbon Platform Services Cloud Management
+Console, proceed to the Projects section.</p></li>
+<li><p>Create a project, name it Woodkraft Application, add yourself as a
+User, and then click <strong>Next</strong>.</p></li>
+</ol>
+<div class="figure align-default" id="id2">
+<img alt="App Setup" src="../_images/app-setup.png" />
+<p class="caption"><span class="caption-text">App Setup!</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</div>
+<ol class="arabic simple">
+<li><p>On the Resources Assignment dialog, select the Service Domain you
+wish to run your application and click <strong>Next</strong>.</p></li>
+</ol>
+<p>KPS has the ability to natively send to several public cloud services
+such as AWS S3, or GCP Cloud Datastore. For this tutorial, Cloud Profile
+Selection can be left blank because no cloud resources will be used.</p>
+<p>KPS can run Kubernetes Apps with images stored in public or private
+registries. Private registries can be accessed by creating a KPS
+Container Registry Profile to store required access information. Because
+this tutorial utilizes containers hosted in a public registry, Container
+Registry Selection can be left blank.</p>
+<ol class="arabic simple">
+<li><p>In the final section, enable <strong>Kafka</strong>, <strong>Prometheus</strong>, <strong>Traefik</strong>,
+and <strong>Istio</strong> services and click <strong>Create</strong>.</p></li>
+</ol>
+</div>
+<div class="section" id="application-helm-chart">
+<h3>Application Helm Chart<a class="headerlink" href="#application-helm-chart" title="Permalink to this headline">¶</a></h3>
+<p>In this section, you will be uploading a Helm chart that will deploy
+microservices necessary for the application such as Wordpress, Debezium,
+Prometheus, and MySQL. Prometheus will be used for event monitoring and
+alerting for the application. The purpose of the other apps are
+described above.</p>
+<ol class="arabic simple">
+<li><p>In a new browser tab or window, download the compressed tar file
+labeled woodkraft-apps. This file contains Helm charts for deploying
+the first set of Kubernetes Apps.</p></li>
+<li><p>Switch context to Woodkraft Application in the Project pulldown, then
+click <strong>Kubernetes Apps</strong>.</p></li>
+<li><p>Create a new Kubernetes App and name it <strong>woodkraft-apps</strong>. In the
+Service Domain Selection section, be sure to choose the same Service
+Domain you selected for the project, then click <strong>Next</strong>.</p></li>
+</ol>
+<div class="figure align-default" id="id3">
+<img alt="Helm Chart1" src="../_images/helm-chart1.png" />
+<p class="caption"><span class="caption-text">Helm Chart1!</span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</div>
+<ol class="arabic simple">
+<li><p>On the Configuration dialog, upload the woodkraft-apps tar file
+downloaded earlier as a Helm chart. Select <strong>Show YAML</strong> for a look
+at the sample configurations, then click <strong>Create</strong>. This Helm chart
+will deploy major app services such as Wordpress, Debezium,
+Prometheus, and MySQL.</p></li>
+</ol>
+<div class="section" id="verify-istio-kafka-and-traefik-configurations">
+<h4>Verify Istio, Kafka and Traefik configurations<a class="headerlink" href="#verify-istio-kafka-and-traefik-configurations" title="Permalink to this headline">¶</a></h4>
+<ol class="arabic simple">
+<li><p>Browse to the Istio section in the UI and confirm new Application
+Metrics for woodkraft-apps are now present.</p></li>
+</ol>
+<div class="figure align-default" id="id4">
+<img alt="Application Metrics" src="../_images/init-istio-config.png" />
+<p class="caption"><span class="caption-text">Init-Istio!</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</div>
+<ol class="arabic simple">
+<li><p>Browse to the Kafka section in the UI and confrim new wordpress_db
+topics have been created.</p></li>
+</ol>
+<div class="figure align-default" id="id5">
+<img alt="Kafka Topics" src="../_images/kafka-topics.png" />
+<p class="caption"><span class="caption-text">kafka-topics!</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</div>
+<ol class="arabic simple">
+<li><p>Browse to the Traefik section in the UI to confirm new ingress rules
+for woodkraft-apps were created.</p></li>
+</ol>
+<div class="figure align-default" id="id6">
+<img alt="Traefik Rules" src="../_images/init-traefik.png" />
+<p class="caption"><span class="caption-text">Traefik2!</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+</div>
+<div class="section" id="monitor-helm-chart">
+<h3>Monitor Helm Chart<a class="headerlink" href="#monitor-helm-chart" title="Permalink to this headline">¶</a></h3>
+<p>Uploading the next Helm chart will deploy monitoring services such as
+Grafana and will make edits to the Traefik Rules. Grafana provides
+charts, graphs, and alerts for the web when connected to supported data
+sources. It is expandable through a plug-in system. End users can create
+complex monitoring dashboards using interactive query builders. Traefik
+ingress allows for content-based routing, load balancing, and SSL/TLS
+termination.</p>
+<ol class="arabic simple">
+<li><p>Download the compressed tar file labeled woodkraft-monitoring.</p>
+<ul class="simple">
+<li><p>This file contains Helm charts for deploying the Kubernetes Apps
+for monitoring the core apps deployed above.</p></li>
+</ul>
+</li>
+<li><p>Once again, click <strong>Kubernetes Apps</strong> in context of the Woodkraft
+Application project.</p></li>
+<li><p>Create a new Kubernetes App and name it <strong>woodkraft-monitoring</strong>.</p></li>
+<li><p>Choose the same service domain you selected for the project, then
+click <strong>Next</strong>.</p></li>
+<li><p>On the Configuration dialog, upload the monitoring tar file as a Helm
+chart, and click <strong>Create</strong>.</p>
+<ul class="simple">
+<li><p>This Helm chart will deploy a new Grafana app on the Service
+Domain.</p></li>
+</ul>
+</li>
+<li><p>Browse to the Traefik section in the UI to confirm new ingress rule
+for Grafana was created.</p></li>
+</ol>
+<div class="figure align-default" id="id7">
+<img alt="new rule" src="../_images/traefik-rules.png" />
+<p class="caption"><span class="caption-text">Traefik!</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</div>
+<p>The application has now been deployed and should be running successfully
+on your Service Domain.</p>
+</div>
+<div class="section" id="accessing-the-applications">
+<h3>Accessing the Applications<a class="headerlink" href="#accessing-the-applications" title="Permalink to this headline">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Create two new DNS records that map the hostnames and IP addresses
+used in the <strong>woodkraft.karbon.nutanix.com</strong> and
+<strong>grafana.woodkraft.karbon.nutanix.com</strong> Traefik rules created above.
+For simplicity, on your local workstation, add the hostnames to the
+<strong>/etc/hosts</strong> file.</p></li>
+</ol>
+<div class="section" id="macos-linux">
+<h4>MacOS/Linux<a class="headerlink" href="#macos-linux" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">echo</span> <span class="s2">&quot;&lt;Service Domain IP&gt; woodkraft.karbon.nutanix.com&quot;</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">-</span><span class="n">a</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">hosts</span>
+<span class="n">echo</span> <span class="s2">&quot;&lt;Service Domain IP&gt; grafana.woodkraft.karbon.nutanix.com&quot;</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">-</span><span class="n">a</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">hosts</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="windows">
+<h4>Windows<a class="headerlink" href="#windows" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">echo</span> <span class="o">&lt;</span><span class="n">Service</span> <span class="n">Domain</span> <span class="n">IP</span><span class="o">&gt;</span> <span class="n">woodkraft</span><span class="o">.</span><span class="n">karbon</span><span class="o">.</span><span class="n">nutanix</span><span class="o">.</span><span class="n">com</span> <span class="o">&gt;&gt;</span> <span class="o">%</span><span class="n">WINDIR</span><span class="o">%</span>\<span class="n">System32</span>\<span class="n">Drivers</span>\<span class="n">Etc</span>\<span class="n">Hosts</span>
+<span class="n">echo</span> <span class="o">&lt;</span><span class="n">Service</span> <span class="n">Domain</span> <span class="n">IP</span><span class="o">&gt;</span> <span class="n">grafana</span><span class="o">.</span><span class="n">woodkraft</span><span class="o">.</span><span class="n">karbon</span><span class="o">.</span><span class="n">nutanix</span><span class="o">.</span><span class="n">com</span> <span class="o">&gt;&gt;</span> <span class="o">%</span><span class="n">WINDIR</span><span class="o">%</span>\<span class="n">System32</span>\<span class="n">Drivers</span>\<span class="n">Etc</span>\<span class="n">Hosts</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="wordpress">
+<h4>WordPress<a class="headerlink" href="#wordpress" title="Permalink to this headline">¶</a></h4>
+<p>Visit
+<a class="reference external" href="https://woodkraft.karbon.nutanix.com/">woodkraft.karbon.nutanix.com</a>
+and confirm that the application is working successfully.</p>
+<div class="figure align-default" id="id8">
+<img alt="web page" src="../_images/app.png" />
+<p class="caption"><span class="caption-text">App Web Page</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+<div class="section" id="grafana">
+<h4>Grafana<a class="headerlink" href="#grafana" title="Permalink to this headline">¶</a></h4>
+<ol class="arabic simple">
+<li><p>Visit
+<a class="reference external" href="https://grafana.woodkraft.karbon.nutanix.com/">grafana.woodkraft.karbon.nutanix.com</a>.</p></li>
+<li><p>Enter <em>admin</em> for both the username and password.</p></li>
+<li><p>Enter the password of your choosing.</p>
+<ul class="simple">
+<li><p>This will be the password for future logins with the <em>admin</em>
+username</p></li>
+</ul>
+</li>
+<li><p>View the Grafana dashboard linked to the Woodkraft application.</p></li>
+</ol>
+<div class="figure align-default" id="id9">
+<img alt="grafana" src="../_images/grafana.png" />
+<p class="caption"><span class="caption-text">Grafana</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+</div>
+<div class="section" id="smart-update-helm-chart">
+<h3>Smart Update Helm Chart<a class="headerlink" href="#smart-update-helm-chart" title="Permalink to this headline">¶</a></h3>
+<p>The final Helm chart will push updates to the already deployed
+application. The update deploys an additinal recommendation service and
+modifies the Istio Virtual Service configuration for the recommendation
+service currently running in the app. Connections from Firefox browsers
+will now be directed to recommendation service v2. In KPS, Istio
+provides traffic management, secure connection, policy enforcement, and
+telemetry collection.</p>
+<ol class="arabic simple">
+<li><p>Download the compressed tar file labeled woodkraft-smart-update.</p></li>
+<li><p>Once again, click <strong>Kubernetes Apps</strong> in context of the Woodkraft
+Application project.</p></li>
+<li><p>Create a new Kubernetes app and name it <strong>woodkraft-updates</strong>. Again,
+be sure to choose the same service domain you selected for the
+project, then click <strong>Next</strong>.</p></li>
+<li><p>On the Configuration dialog, upload the smart-update tar file as a
+Helm chart, and click <strong>Create</strong>.</p>
+<ul class="simple">
+<li><p>This Helm chart will update the recommendation service running in
+the application.</p></li>
+</ul>
+</li>
+<li><p>Browse to the Istio, Virtual Services section in the UI and confirm
+and confirm there are two recommendation services running.</p>
+<ul class="simple">
+<li><p>Notice the regex labeled <em>Firefox</em></p></li>
+</ul>
+</li>
+<li><p>Open
+<a class="reference external" href="https://woodkraft.karbon.nutanix.com/recommendations">woodkraft.karbon.nutanix.com</a>
+in Firefox and view the updated recommendation service.</p></li>
+</ol>
+<div class="figure align-default" id="id10">
+<img alt="rs2" src="../_images/rs2.png" />
+<p class="caption"><span class="caption-text">RS2!</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</div>
+<p>Congratulations! You’ve successfully deployed a Kubernetes App to your
+Service Domain, and then updated it, using Karbon Platform Services. KPS
+makes it simple to manage the deployment and monitoring of both Service
+Domains as well as the services, applications, and data residing on
+them.</p>
+</div>
+</div>
+<div class="section" id="takeaways">
+<h2>Takeaways<a class="headerlink" href="#takeaways" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Creating projects with Karbon Platform Services segments resources
+such as Kubernetes Apps and other services so that only assigned
+users can view and modify them.</p></li>
+<li><p>KSP enables management of application services such as Kafka,
+Prometheus, Istio, and Traefik from one platform.</p></li>
+<li><p>Kubernetes applications can be created using Kubernets formatted YAML
+or Helm charts in KPS.</p></li>
+<li><p>Configuring and confirming ingress rules to deployed Kubernetes
+applications is easy in KPS.</p></li>
+<li><p>KPS allows deployment of containerized applications and services at
+scale using a cloud-based SaaS control plane.</p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">KPS-woodkraft</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Deploy a Kubernetes Application on Karbon Platform Services</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-karbon-platform-services">Accessing Karbon Platform Services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#application-design">Application Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#application-architecture">Application Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#application-deployment">Application Deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#takeaways">Takeaways</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">Welcome to KPS-woodkraft’s documentation!</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Sean Lingham.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/deploy_woodkraft/deploy_woodkraft.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
