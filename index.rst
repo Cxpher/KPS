@@ -13,10 +13,3 @@ Welcome to KPS-woodkraft's documentation!
    :caption: Contents:
    
    deploy_woodkraft/deploy_woodkraft
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
