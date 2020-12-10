@@ -114,7 +114,7 @@ alerting for the application. The purpose of the other apps are
 described above.
 
 1. In a new browser tab or window, download the compressed tar file
-   labeled `woodkraft-apps <https://github.com/nutanix/karbon-platform-services/blob/master/projects/woodkraft/woodkraft-apps.tgz>`_. This file contains Helm charts for deploying
+   labeled `woodkraft-apps <https://github.com/nutanix/karbon-platform-services/raw/master/projects/woodkraft/woodkraft-apps.tgz>`_. This file contains Helm charts for deploying
    the first set of Kubernetes Apps.
 2. Switch context to Woodkraft Application in the Project pulldown, then
    click **Kubernetes Apps**.
@@ -170,7 +170,7 @@ complex monitoring dashboards using interactive query builders. Traefik
 ingress allows for content-based routing, load balancing, and SSL/TLS
 termination.
 
-1. Download the compressed tar file labeled woodkraft-monitoring.
+1. Download the compressed tar file labeled `woodkraft-monitoring <https://github.com/nutanix/karbon-platform-services/raw/master/projects/woodkraft/woodkraft-monitoring.tgz>`_.
 
    -  This file contains Helm charts for deploying the Kubernetes Apps
       for monitoring the core apps deployed above.
@@ -260,7 +260,7 @@ will now be directed to recommendation service v2. In KPS, Istio
 provides traffic management, secure connection, policy enforcement, and
 telemetry collection.
 
-1. Download the compressed tar file labeled woodkraft-smart-update.
+1. Download the compressed tar file labeled `woodkraft-smart-update <https://github.com/nutanix/karbon-platform-services/raw/master/projects/woodkraft/woodkraft-smart-update.tgz>`_.
 2. Once again, click **Kubernetes Apps** in context of the Woodkraft
    Application project.
 3. Create a new Kubernetes app and name it **woodkraft-updates**. Again,
