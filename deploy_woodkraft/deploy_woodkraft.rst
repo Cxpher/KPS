@@ -114,7 +114,7 @@ alerting for the application. The purpose of the other apps are
 described above.
 
 1. In a new browser tab or window, download the compressed tar file
-   labeled woodkraft-apps. This file contains Helm charts for deploying
+   labeled `woodkraft-apps <https://github.com/nutanix/karbon-platform-services/blob/master/projects/woodkraft/woodkraft-apps.tgz>`_. This file contains Helm charts for deploying
    the first set of Kubernetes Apps.
 2. Switch context to Woodkraft Application in the Project pulldown, then
    click **Kubernetes Apps**.
